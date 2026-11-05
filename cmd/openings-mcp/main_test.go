@@ -20,6 +20,7 @@ import (
 	"github.com/amikai/openings-mcp/internal/provider/indeed"
 	"github.com/amikai/openings-mcp/internal/provider/job104"
 	"github.com/amikai/openings-mcp/internal/provider/jobindex"
+	"github.com/amikai/openings-mcp/internal/provider/jobsacuk"
 	"github.com/amikai/openings-mcp/internal/provider/linkedin"
 	"github.com/amikai/openings-mcp/internal/provider/mynavi"
 	"github.com/amikai/openings-mcp/internal/provider/tsmc"
@@ -101,6 +102,7 @@ func TestServerListsJobTools(t *testing.T) {
 	cLinkedin := linkedin.NewClient("https://www.linkedin.com", http.DefaultClient)
 	cIndeed := indeed.NewClient("https://apis.indeed.com/graphql", http.DefaultClient)
 	cJobindex := jobindex.NewClient("https://www.jobindex.dk", http.DefaultClient)
+	cJobsacuk := jobsacuk.NewClient("https://www.jobs.ac.uk", http.DefaultClient)
 	cMynavi := mynavi.NewClient("https://tenshoku.mynavi.jp", http.DefaultClient)
 
 	registry, err := newATSRegistry(http.DefaultClient, http.DefaultClient, nil)
@@ -115,6 +117,7 @@ func TestServerListsJobTools(t *testing.T) {
 		linkedin: cLinkedin,
 		indeed:   cIndeed,
 		jobindex: cJobindex,
+		jobsacuk: cJobsacuk,
 		mynavi:   cMynavi,
 	}, registry, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	client := mcp.NewClient(&mcp.Implementation{Name: "smoke", Version: "v0"}, nil)
@@ -151,6 +154,8 @@ func TestServerListsJobTools(t *testing.T) {
 		"indeed_get_job_detail",
 		"jobindex_search_jobs",
 		"jobindex_get_job_detail",
+		"jobsacuk_search_jobs",
+		"jobsacuk_get_job_detail",
 		"mynavi_search_jobs",
 		"mynavi_get_job_detail",
 		"freehire_search_jobs",

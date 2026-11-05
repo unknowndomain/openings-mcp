@@ -50,6 +50,7 @@ import (
 	"github.com/amikai/openings-mcp/internal/provider/indeed"
 	"github.com/amikai/openings-mcp/internal/provider/job104"
 	"github.com/amikai/openings-mcp/internal/provider/jobindex"
+	"github.com/amikai/openings-mcp/internal/provider/jobsacuk"
 	"github.com/amikai/openings-mcp/internal/provider/linkedin"
 	"github.com/amikai/openings-mcp/internal/provider/meta"
 	"github.com/amikai/openings-mcp/internal/provider/mokahr"
@@ -67,12 +68,12 @@ var (
 // serverInstructions carries the cross-tool guidance for host LLMs: provider
 // routing and the shared search→detail flow. Per-tool behavior stays in each
 // tool's description.
-const serverInstructions = `openings-mcp exposes job-search tools in two families: (1) per-provider tools for the job boards 104, Cake.me (Taiwan-centric), Jobindex (Denmark), Mynavi Tenshoku (Japan), Flowxtra (board-wide across every company on the Flowxtra careers platform, Europe-leaning), freehire.me (IT/tech catalogue across many company ATS boards), LinkedIn and Indeed (global), plus the careers sites of Amazon, Apple, Google, Meta, and TSMC; (2) unified company tools — search_jobs_by_company, get_filters_by_company, get_job_detail_by_company — covering thousands of companies behind one company parameter.
+const serverInstructions = `openings-mcp exposes job-search tools in two families: (1) per-provider tools for the job boards 104, Cake.me (Taiwan-centric), Jobindex (Denmark), jobs.ac.uk (UK higher education and research), Mynavi Tenshoku (Japan), Flowxtra (board-wide across every company on the Flowxtra careers platform, Europe-leaning), freehire.me (IT/tech catalogue across many company ATS boards), LinkedIn and Indeed (global), plus the careers sites of Amazon, Apple, Google, Meta, and TSMC; (2) unified company tools — search_jobs_by_company, get_filters_by_company, get_job_detail_by_company — covering thousands of companies behind one company parameter.
 
 Tool selection:
-- When the user names a specific company, prefer the most direct source for it, in this order. (1) If that company has its own tools here — amazon, apple, google, meta, tsmc — use them: they read the employer's own careers site, and none of these five is in search_jobs_by_company's roster. (2) Otherwise try search_jobs_by_company; it covers thousands of companies and its error message suggests close matches when a name isn't recognized. (3) Only if neither covers the company, try freehire: freehire_search_companies turns an approximate or misspelled name into the company_slug that freehire_search_jobs takes, and freehire crawls many ATS platforms this server has no adapter for. freehire holds a crawled snapshot of an employer's board, so never let it stand in for a first-party source that exists. (4) Fall back to the keyword boards (linkedin, indeed, 104, jobindex, mynavi, ...) last, since they search by keyword rather than by company.
-- When the user explicitly names a job board or careers site as the desired source (for example LinkedIn, Indeed, 104, Cake.me, Jobindex, マイナビ転職/Mynavi, Flowxtra, freehire.me, Amazon Jobs, Apple Careers, Google Careers, Meta Careers, or TSMC Careers), use that source's dedicated tools. A company name by itself is not a source selection.
-- When the user has no target in mind, offer them the provider choices; if they don't pick one, start with the job boards (104, Cake.me, LinkedIn, Indeed, Jobindex for Denmark, and Mynavi for Japan) rather than a single company's careers site.
+- When the user names a specific company, prefer the most direct source for it, in this order. (1) If that company has its own tools here — amazon, apple, google, meta, tsmc — use them: they read the employer's own careers site, and none of these five is in search_jobs_by_company's roster. (2) Otherwise try search_jobs_by_company; it covers thousands of companies and its error message suggests close matches when a name isn't recognized. (3) Only if neither covers the company, try freehire: freehire_search_companies turns an approximate or misspelled name into the company_slug that freehire_search_jobs takes, and freehire crawls many ATS platforms this server has no adapter for. freehire holds a crawled snapshot of an employer's board, so never let it stand in for a first-party source that exists. (4) Fall back to the keyword boards (linkedin, indeed, 104, jobindex, jobsacuk, mynavi, ...) last, since they search by keyword rather than by company.
+- When the user explicitly names a job board or careers site as the desired source (for example LinkedIn, Indeed, 104, Cake.me, Jobindex, jobs.ac.uk, マイナビ転職/Mynavi, Flowxtra, freehire.me, Amazon Jobs, Apple Careers, Google Careers, Meta Careers, or TSMC Careers), use that source's dedicated tools. A company name by itself is not a source selection.
+- When the user has no target in mind, offer them the provider choices; if they don't pick one, start with the job boards (104, Cake.me, LinkedIn, Indeed, Jobindex for Denmark, jobs.ac.uk for UK universities and research institutes, and Mynavi for Japan) rather than a single company's careers site.
 - search_jobs_by_company also accepts recognized public careers-page URLs from the career systems this server supports. Do not pass other careers sites; some career systems accept URLs only for companies already in the curated roster.
 - When a company is ambiguous, the unified company tools reject the call and list the matching companies by name with their public careers URLs; retry the same tool with one of the listed careers URLs, not with the original name.
 
@@ -348,6 +349,8 @@ func newProviderServer(logger *slog.Logger, dumpCache *ats.DumpCache) (*mcp.Serv
 
 	cJobindex := jobindex.NewClient("https://www.jobindex.dk", hc)
 
+	cJobsacuk := jobsacuk.NewClient("https://www.jobs.ac.uk", hc)
+
 	cMynavi := mynavi.NewClient("https://tenshoku.mynavi.jp", hc)
 
 	cMeta := meta.NewClient("https://www.metacareers.com", hc)
@@ -369,6 +372,7 @@ func newProviderServer(logger *slog.Logger, dumpCache *ats.DumpCache) (*mcp.Serv
 		flowxtra: cFlowxtra,
 		freehire: cFreehire,
 		jobindex: cJobindex,
+		jobsacuk: cJobsacuk,
 		mynavi:   cMynavi,
 		meta:     cMeta,
 	}, registry, logger), nil
@@ -465,6 +469,7 @@ type providerClients struct {
 	flowxtra *flowxtra.Client
 	freehire *freehire.Client
 	jobindex *jobindex.Client
+	jobsacuk *jobsacuk.Client
 	mynavi   *mynavi.Client
 	meta     *meta.Client
 }
@@ -489,6 +494,7 @@ func newServer(clients *providerClients, registry *ats.Registry, logger *slog.Lo
 	openingsmcp.RegisterFlowxtra(server, clients.flowxtra)
 	openingsmcp.RegisterFreehire(server, clients.freehire)
 	openingsmcp.RegisterJobindex(server, clients.jobindex)
+	openingsmcp.RegisterJobsacuk(server, clients.jobsacuk)
 	openingsmcp.RegisterMynavi(server, clients.mynavi)
 	openingsmcp.RegisterMeta(server, clients.meta)
 	openingsmcp.RegisterCompany(server, registry)
