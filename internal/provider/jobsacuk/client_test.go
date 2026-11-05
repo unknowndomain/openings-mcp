@@ -61,7 +61,8 @@ func TestSearchFiltered(t *testing.T) {
 	assert.Equal(t, "Imperial College London", got.Jobs[0].Employer)
 	assert.Equal(t, "£59,808 to £71,793 per annum", got.Jobs[0].Salary)
 	for _, j := range got.Jobs {
-		assert.Equal(t, "London", j.Location)
+		// Cards may add an area or workplace type, e.g. "Hendon, London" or "London, Hybrid".
+		assert.Contains(t, j.Location, "London")
 	}
 }
 
@@ -135,8 +136,8 @@ func TestJobDetailNotFound(t *testing.T) {
 
 func TestNormalizeJobID(t *testing.T) {
 	for in, want := range map[string]string{
-		"DTJ660":                          "DTJ660",
-		" dtl650 ":                        "DTL650",
+		"DTJ660":                            "DTJ660",
+		" dtl650 ":                          "DTL650",
 		"https://www.jobs.ac.uk/job/DTK759": "DTK759",
 		"/job/DTJ824/technical-facilities-manager-maternity-cover?x=1": "DTJ824",
 	} {
